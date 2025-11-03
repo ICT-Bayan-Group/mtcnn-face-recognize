@@ -1,25 +1,21 @@
 """
 Face Recognition Web App dengan HTTPS Support untuk iOS/iPhone
-Kompatibel dengan Safari dan semua browser mobile
++ Support Upload Gambar dengan Face Detection Box
 
 INSTALASI:
 pip install flask flask-cors torch torchvision facenet-pytorch opencv-python pillow numpy pyopenssl
 
-CARA PAKAI:
-1. Jalankan: python app_https.py
-2. Install sertifikat SSL (sekali saja)
-3. Akses dari iPhone: https://192.168.x.x:5000
-
-CATATAN PENTING:
-- iPhone/Safari WAJIB pakai HTTPS untuk akses kamera
-- Akan ada warning "Not Secure", klik "Advanced" → "Proceed"
+FITUR BARU:
+- Upload gambar di menu Recognize
+- Deteksi wajah dengan kotak hijau
+- Tampilkan nama jika terdeteksi
 """
 
 from flask import Flask, render_template_string, request, jsonify, Response
 from flask_cors import CORS
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import torch
 from facenet_pytorch import MTCNN, InceptionResnetV1
 import pickle
@@ -32,7 +28,6 @@ import ssl
 app = Flask(__name__)
 CORS(app)
 
-# ... [Class FaceRecognitionWeb sama seperti sebelumnya] ...
 class FaceRecognitionWeb:
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -124,6 +119,73 @@ class FaceRecognitionWeb:
                     continue
         
         return frame, results
+    
+    def process_image_pil(self, img_pil):
+        """Process PIL Image dan return PIL Image dengan kotak deteksi"""
+        boxes, probs = self.mtcnn.detect(img_pil)
+        
+        # Create a drawing context
+        draw = ImageDraw.Draw(img_pil)
+        
+        # Try to load a font, fallback to default if not available
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+        except:
+            font = ImageFont.load_default()
+        
+        results = []
+        if boxes is not None:
+            for i, box in enumerate(boxes):
+                try:
+                    x1, y1, x2, y2 = [int(coord) for coord in box]
+                    x1, y1 = max(0, x1), max(0, y1)
+                    x2 = min(img_pil.width, x2)
+                    y2 = min(img_pil.height, y2)
+                    
+                    # Extract face for embedding
+                    face_img = img_pil.crop((x1, y1, x2, y2))
+                    face_img = face_img.resize((160, 160))
+                    
+                    face_array = np.array(face_img).astype(np.float32)
+                    face_array = (face_array - 127.5) / 128.0
+                    face_tensor = torch.from_numpy(face_array).permute(2, 0, 1)
+                    
+                    embedding = self.extract_embedding(face_tensor)
+                    best_match = self._find_best_match(embedding)
+                    
+                    result = {
+                        'box': [x1, y1, x2, y2],
+                        'confidence': float(probs[i])
+                    }
+                    
+                    if best_match:
+                        result['name'] = best_match['name']
+                        result['user_id'] = best_match['user_id']
+                        result['distance'] = float(best_match['distance'])
+                        result['status'] = 'recognized'
+                        color = (0, 255, 0)  # Green
+                        label = f"{result['name']} ({result['distance']:.2f})"
+                    else:
+                        result['name'] = 'Unknown'
+                        result['status'] = 'unknown'
+                        color = (255, 165, 0)  # Orange
+                        label = "Unknown"
+                    
+                    # Draw rectangle
+                    draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
+                    
+                    # Draw label with background
+                    bbox = draw.textbbox((x1, y1-25), label, font=font)
+                    draw.rectangle(bbox, fill=color)
+                    draw.text((x1, y1-25), label, fill=(255, 255, 255), font=font)
+                    
+                    results.append(result)
+                    
+                except Exception as e:
+                    print(f"Error processing face: {e}")
+                    continue
+        
+        return img_pil, results
     
     def _find_best_match(self, embedding):
         best_match = None
@@ -271,7 +333,7 @@ class FaceRecognitionWeb:
 
 face_system = FaceRecognitionWeb()
 
-# HTML Template dengan iOS Camera Fallback
+# HTML Template dengan Upload Image Support
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="id">
@@ -368,22 +430,38 @@ HTML_TEMPLATE = '''
             display: block;
         }
         
-        #video, #enrollVideo {
+        #video, #enrollVideo, #uploadedImage {
             width: 100%;
             max-width: 100%;
             border-radius: 15px;
             background: #000;
             aspect-ratio: 4/3;
-            object-fit: cover;
+            object-fit: contain;
         }
         
-        /* iOS Safari specific fixes */
-        video::-webkit-media-controls-play-button {
-            display: none !important;
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px 20px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 15px;
         }
         
-        video::-webkit-media-controls-start-playback-button {
-            display: none !important;
+        .upload-area:hover {
+            background: #e9ecef;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #d1ecf1;
+            border-color: #17a2b8;
+        }
+        
+        #fileInput {
+            display: none;
         }
         
         .controls {
@@ -423,6 +501,11 @@ HTML_TEMPLATE = '''
         
         .btn-danger {
             background: #dc3545;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
             color: white;
         }
         
@@ -559,13 +642,44 @@ HTML_TEMPLATE = '''
             color: white;
             font-weight: 600;
         }
+        
+        .mode-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        #cameraMode, #uploadMode {
+            display: none;
+        }
+        
+        #cameraMode.active, #uploadMode.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🔍 Face Recognition System</h1>
-            <p>iOS & Android Compatible</p>
+            <p>iOS & Android Compatible + Upload Image</p>
         </div>
         
         <div class="ios-warning" id="iosWarning">
@@ -582,12 +696,39 @@ HTML_TEMPLATE = '''
         <div class="content">
             <!-- TAB 1: RECOGNIZE -->
             <div id="recognize" class="tab-content active">
-                <video id="video" autoplay playsinline muted></video>
-                <div class="controls">
-                    <button class="btn-primary" onclick="startCamera()">▶️ Start Camera</button>
-                    <button class="btn-warning" onclick="savePendingFace()">💾 Save Unknown</button>
-                    <button class="btn-danger" onclick="stopCamera()">⏹️ Stop</button>
+                <div class="mode-switch">
+                    <button class="mode-btn active" onclick="switchMode('camera')">📹 Camera</button>
+                    <button class="mode-btn" onclick="switchMode('upload')">📤 Upload Image</button>
                 </div>
+                
+                <!-- CAMERA MODE -->
+                <div id="cameraMode" class="active">
+                    <video id="video" autoplay playsinline muted></video>
+                    <div class="controls">
+                        <button class="btn-primary" onclick="startCamera()">▶️ Start Camera</button>
+                        <button class="btn-warning" onclick="savePendingFace()">💾 Save Unknown</button>
+                        <button class="btn-danger" onclick="stopCamera()">⏹️ Stop</button>
+                    </div>
+                </div>
+                
+                <!-- UPLOAD MODE -->
+                <div id="uploadMode">
+                    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                        <h3>📤 Upload Image</h3>
+                        <p>Klik atau drag & drop gambar di sini</p>
+                        <p style="font-size: 12px; color: #6c757d; margin-top: 10px;">Mendukung: JPG, PNG, WebP</p>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*" onchange="handleFileSelect(event)">
+                    
+                    <div id="imagePreview" style="display: none;">
+                        <img id="uploadedImage" src="" alt="Uploaded Image">
+                        <div class="controls">
+                            <button class="btn-info" onclick="processUploadedImage()">🔍 Detect Faces</button>
+                            <button class="btn-danger" onclick="clearUpload()">🗑️ Clear</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="recognizeStatus" class="status info" style="display:none;"></div>
             </div>
             
@@ -637,7 +778,6 @@ HTML_TEMPLATE = '''
     </div>
     
     <script>
-        // Detect iOS
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         if (isIOS) {
             document.getElementById('iosWarning').style.display = 'block';
@@ -662,6 +802,126 @@ HTML_TEMPLATE = '''
             frameCount: 0
         };
         
+        // Upload Area Drag & Drop
+        const uploadArea = document.getElementById('uploadArea');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+        });
+        
+        uploadArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        }
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+        
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file!');
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('uploadedImage').src = e.target.result;
+                document.getElementById('uploadArea').style.display = 'none';
+                document.getElementById('imagePreview').style.display = 'block';
+                showStatus('recognizeStatus', '🔄 Processing image...', 'info');
+                
+                // Auto-detect setelah image loaded
+                setTimeout(() => {
+                    processUploadedImage();
+                }, 100);
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function clearUpload() {
+            document.getElementById('uploadedImage').src = '';
+            document.getElementById('uploadArea').style.display = 'block';
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('recognizeStatus').style.display = 'none';
+        }
+        
+        async function processUploadedImage() {
+            const img = document.getElementById('uploadedImage');
+            if (!img.src) {
+                alert('No image uploaded!');
+                return;
+            }
+            
+            showStatus('recognizeStatus', '🔄 Processing image...', 'info');
+            
+            try {
+                const response = await fetch('/api/recognize_upload', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({image: img.src})
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Display processed image with detection boxes
+                    img.src = data.processed_image;
+                    
+                    if (data.faces && data.faces.length > 0) {
+                        const faceInfo = data.faces.map((face, idx) => 
+                            `Face ${idx + 1}: ${face.name}${face.distance ? ' (' + face.distance.toFixed(2) + ')' : ''}`
+                        ).join(' | ');
+                        showStatus('recognizeStatus', `✅ Detected ${data.faces.length} face(s): ${faceInfo}`, 'success');
+                    } else {
+                        showStatus('recognizeStatus', '⚠️ No faces detected in image', 'warning');
+                    }
+                } else {
+                    showStatus('recognizeStatus', '❌ Error: ' + data.error, 'warning');
+                }
+            } catch (err) {
+                showStatus('recognizeStatus', '❌ Error: ' + err.message, 'warning');
+            }
+        }
+        
+        function switchMode(mode) {
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (mode === 'camera') {
+                document.getElementById('cameraMode').classList.add('active');
+                document.getElementById('uploadMode').classList.remove('active');
+            } else {
+                document.getElementById('cameraMode').classList.remove('active');
+                document.getElementById('uploadMode').classList.add('active');
+                stopCamera();
+            }
+            
+            document.getElementById('recognizeStatus').style.display = 'none';
+        }
+        
         function showTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -677,7 +937,6 @@ HTML_TEMPLATE = '''
             try {
                 const video = document.getElementById('video');
                 
-                // iOS-friendly constraints
                 const constraints = {
                     video: { 
                         facingMode: 'user',
@@ -690,13 +949,12 @@ HTML_TEMPLATE = '''
                 videoStream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = videoStream;
                 
-                // Force play on iOS
                 video.play().catch(e => {
                     console.log('Autoplay prevented:', e);
                     showStatus('recognizeStatus', 'Tap video to start', 'warning');
                 });
                 
-                recognizeInterval = setInterval(recognizeFace, 1500); // Slower for iOS
+                recognizeInterval = setInterval(recognizeFace, 1500);
                 showStatus('recognizeStatus', '✅ Camera started!', 'success');
             } catch (err) {
                 console.error('Camera error:', err);
@@ -718,7 +976,7 @@ HTML_TEMPLATE = '''
         
         async function recognizeFace() {
             const video = document.getElementById('video');
-            if (!video.videoWidth) return; // Video not ready
+            if (!video.videoWidth) return;
             
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
@@ -1056,7 +1314,6 @@ HTML_TEMPLATE = '''
 </html>
 '''
 
-# Flask Routes (sama seperti sebelumnya)
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -1070,6 +1327,35 @@ def api_recognize():
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         processed_frame, results = face_system.process_frame(frame)
         return jsonify({'success': True, 'faces': results})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/recognize_upload', methods=['POST'])
+def api_recognize_upload():
+    try:
+        data = request.json
+        image_data = data['image']
+        
+        # Decode image
+        nparr = np.frombuffer(base64.b64decode(image_data.split(',')[1]), np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img_pil = Image.fromarray(img_rgb)
+        
+        # Process with PIL (menggambar kotak hijau)
+        processed_img, results = face_system.process_image_pil(img_pil)
+        
+        # Convert back to base64
+        buffered = io.BytesIO()
+        processed_img.save(buffered, format="JPEG", quality=90)
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        processed_image_data = f"data:image/jpeg;base64,{img_str}"
+        
+        return jsonify({
+            'success': True, 
+            'faces': results,
+            'processed_image': processed_image_data
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -1227,7 +1513,7 @@ def generate_self_signed_cert():
     
     cert.set_serial_number(1000)
     cert.gmtime_adj_notBefore(0)
-    cert.gmtime_adj_notAfter(365*24*60*60)  # Valid 1 tahun
+    cert.gmtime_adj_notAfter(365*24*60*60)
     cert.set_issuer(cert.get_subject())
     cert.set_pubkey(k)
     cert.sign(k, 'sha256')
@@ -1243,7 +1529,6 @@ def generate_self_signed_cert():
 if __name__ == '__main__':
     import socket
     
-    # Generate SSL certificate
     try:
         generate_self_signed_cert()
     except ImportError:
@@ -1268,10 +1553,15 @@ if __name__ == '__main__':
     local_ip = socket.gethostbyname(hostname)
     
     print("\n" + "="*60)
-    print("🚀 FACE RECOGNITION WEB APP (HTTPS)")
+    print("🚀 FACE RECOGNITION WEB APP (HTTPS + UPLOAD)")
     print("="*60)
     print(f"🌐 Akses dari laptop: https://localhost:5000")
     print(f"📱 Akses dari iPhone: https://{local_ip}:5000")
+    print("="*60)
+    print("💡 FITUR BARU:")
+    print("   ✅ Upload gambar di menu Recognize")
+    print("   ✅ Deteksi wajah dengan kotak hijau")
+    print("   ✅ Tampilkan nama jika terdeteksi")
     print("="*60)
     print("💡 PENTING untuk iPhone/iOS:")
     print("   1. WAJIB pakai HTTPS (bukan HTTP)")
@@ -1282,9 +1572,7 @@ if __name__ == '__main__':
     print("📱 Pastikan laptop dan HP di WiFi yang SAMA!")
     print("="*60 + "\n")
     
-    # Create SSL context
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.load_cert_chain('cert.pem', 'key.pem')
     
-    # Run Flask dengan HTTPS
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True, ssl_context=context)
