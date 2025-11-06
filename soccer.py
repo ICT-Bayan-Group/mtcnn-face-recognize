@@ -139,36 +139,66 @@ HTML_TEMPLATE = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Soccer Clinic - AI Face Recognition</title>
+    <title>Bayan Soccer Clinic - AI Face Recognition</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #ffffff;
             min-height: 100vh;
             color: #333;
         }
         
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+        }
         
         .header {
             text-align: center;
             padding: 40px 20px;
-            color: white;
+            color: #2563eb;
             margin-bottom: 30px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
         }
         
         .header h1 { 
             font-size: 36px; 
             font-weight: 700; 
             margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
         }
         
         .header p { 
             font-size: 16px; 
-            opacity: 0.9;
+            color: white;
+            opacity: 0.95;
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 30px 15px;
+                border-radius: 12px;
+            }
+            
+            .header h1 {
+                font-size: 28px;
+            }
+            
+            .header p {
+                font-size: 14px;
+            }
         }
         
         .role-selector {
@@ -176,6 +206,14 @@ HTML_TEMPLATE = '''
             gap: 20px;
             margin-bottom: 30px;
             justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        @media (max-width: 768px) {
+            .role-selector {
+                flex-direction: column;
+                gap: 15px;
+            }
         }
         
         .role-card {
@@ -194,6 +232,13 @@ HTML_TEMPLATE = '''
             box-shadow: 0 8px 12px rgba(0,0,0,0.2);
         }
         
+        @media (max-width: 768px) {
+            .role-card {
+                width: 100%;
+                padding: 25px;
+            }
+        }
+        
         .role-card .icon {
             font-size: 64px;
             margin-bottom: 20px;
@@ -202,12 +247,22 @@ HTML_TEMPLATE = '''
         .role-card h2 {
             font-size: 24px;
             margin-bottom: 10px;
-            color: #667eea;
+            color: #2563eb;
         }
         
         .role-card p {
             font-size: 14px;
             color: #666;
+        }
+        
+        @media (max-width: 768px) {
+            .role-card .icon {
+                font-size: 56px;
+            }
+            
+            .role-card h2 {
+                font-size: 22px;
+            }
         }
         
         .app-container {
@@ -227,28 +282,34 @@ HTML_TEMPLATE = '''
             font-weight: 700;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 3px solid #667eea;
-            color: #667eea;
+            border-bottom: 3px solid #2563eb;
+            color: #2563eb;
+        }
+        
+        @media (max-width: 768px) {
+            .section-title {
+                font-size: 20px;
+            }
         }
         
         .upload-area {
-            border: 3px dashed #667eea;
+            border: 3px dashed #2563eb;
             border-radius: 12px;
             padding: 60px 20px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s;
-            background: #f8f9ff;
+            background: #eff6ff;
         }
         
         .upload-area:hover { 
-            border-color: #764ba2; 
-            background: #f0f2ff; 
+            border-color: #1d4ed8; 
+            background: #dbeafe; 
         }
         
         .upload-area.dragover { 
-            border-color: #764ba2; 
-            background: #e8ebff; 
+            border-color: #1d4ed8; 
+            background: #bfdbfe; 
         }
         
         .image-grid {
@@ -258,12 +319,27 @@ HTML_TEMPLATE = '''
             margin-top: 20px;
         }
         
+        @media (max-width: 768px) {
+            .image-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 15px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .image-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
+        
         .image-card {
             position: relative;
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             transition: all 0.3s;
+            cursor: pointer;
         }
         
         .image-card:hover {
@@ -277,21 +353,46 @@ HTML_TEMPLATE = '''
             object-fit: cover;
         }
         
+        @media (max-width: 768px) {
+            .image-card img {
+                height: 200px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .image-card img {
+                height: 250px;
+            }
+        }
+        
         .image-card .info {
             padding: 15px;
             background: white;
+        }
+        
+        @media (max-width: 768px) {
+            .image-card .info {
+                padding: 12px;
+            }
         }
         
         .image-card .badge {
             position: absolute;
             top: 10px;
             right: 10px;
-            background: rgba(102, 126, 234, 0.9);
+            background: rgba(37, 99, 235, 0.95);
             color: white;
             padding: 5px 12px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .image-card .badge {
+                font-size: 11px;
+                padding: 4px 10px;
+            }
         }
         
         button {
@@ -302,12 +403,12 @@ HTML_TEMPLATE = '''
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
-            background: #667eea;
+            background: #2563eb;
             color: white;
         }
         
         button:hover { 
-            background: #764ba2;
+            background: #1d4ed8;
             transform: scale(1.02);
         }
         
@@ -316,14 +417,21 @@ HTML_TEMPLATE = '''
         }
         
         button.secondary {
-            background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
+            background: #fb923c;
+            color: white;
+            border: none;
         }
         
         button.secondary:hover {
-            background: #667eea;
+            background: #f97316;
             color: white;
+        }
+        
+        @media (max-width: 768px) {
+            button {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
         }
         
         .controls {
@@ -331,6 +439,24 @@ HTML_TEMPLATE = '''
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                gap: 8px;
+            }
+            
+            .controls button {
+                flex: 1 1 calc(50% - 4px);
+                min-width: 140px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .controls button {
+                flex: 1 1 100%;
+                width: 100%;
+            }
         }
         
         .status {
@@ -367,30 +493,55 @@ HTML_TEMPLATE = '''
             display: block;
         }
         
+        @media (max-width: 768px) {
+            video {
+                max-width: 100%;
+                border-radius: 8px;
+                margin: 15px auto;
+            }
+        }
+        
         .back-btn {
             position: fixed;
             top: 20px;
             left: 20px;
             background: white;
-            color: #667eea;
+            color: #2563eb;
             padding: 10px 20px;
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             z-index: 1000;
+            border: 2px solid #2563eb;
         }
         
         .back-btn:hover {
-            background: #667eea;
+            background: #2563eb;
             color: white;
         }
         
+        @media (max-width: 768px) {
+            .back-btn {
+                top: 10px;
+                left: 10px;
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+        }
+        
         .metadata-form {
-            background: #f8f9ff;
+            background: #eff6ff;
             padding: 20px;
             border-radius: 12px;
             margin-bottom: 20px;
+            border: 2px solid #bfdbfe;
+        }
+        
+        @media (max-width: 768px) {
+            .metadata-form {
+                padding: 15px;
+            }
         }
         
         .form-group {
@@ -401,20 +552,114 @@ HTML_TEMPLATE = '''
             display: block;
             margin-bottom: 5px;
             font-weight: 600;
-            color: #667eea;
+            color: #2563eb;
+            font-size: 14px;
         }
         
         .form-group input {
             width: 100%;
             padding: 10px;
-            border: 2px solid #e0e0e0;
+            border: 2px solid #bfdbfe;
             border-radius: 8px;
             font-size: 14px;
         }
         
         .form-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #2563eb;
+        }
+        
+        @media (max-width: 768px) {
+            .form-group input {
+                padding: 8px;
+                font-size: 13px;
+            }
+        }
+        
+        /* Password Login Modal */
+        .password-modal {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.85);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .password-modal.active {
+            display: flex;
+        }
+        
+        .password-modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @media (max-width: 768px) {
+            .password-modal-content {
+                padding: 30px 20px;
+                max-width: 90%;
+            }
+        }
+        
+        .password-modal h2 {
+            color: #2563eb;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        
+        .password-modal p {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        
+        .password-input-group {
+            margin-bottom: 20px;
+        }
+        
+        .password-input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #bfdbfe;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .password-input-group input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+        
+        .password-error {
+            color: #dc2626;
+            font-size: 13px;
+            margin-top: 8px;
+            display: none;
+        }
+        
+        .password-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .password-buttons button {
+            flex: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .password-buttons {
+                flex-direction: column;
+            }
         }
         
         .photo-detail {
@@ -457,18 +702,178 @@ HTML_TEMPLATE = '''
             margin-bottom: 20px;
             opacity: 0.5;
         }
+        
+        /* Modal for Image Detail Preview */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            overflow: auto;
+        }
+        
+        .modal.active {
+            display: block;
+        }
+        
+        .modal-content {
+            position: relative;
+            margin: 2% auto;
+            padding: 0;
+            max-width: 1000px;
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+        
+        .modal-header {
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border-radius: 16px 16px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .modal-close {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            padding: 0;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255,255,255,0.3);
+            transform: rotate(90deg);
+        }
+        
+        .modal-body {
+            padding: 0;
+        }
+        
+        .modal-image {
+            width: 100%;
+            max-height: 600px;
+            object-fit: contain;
+            background: #000;
+        }
+        
+        .modal-info {
+            padding: 30px;
+        }
+        
+        .modal-detail-row {
+            display: flex;
+            padding: 15px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .modal-detail-row:last-child {
+            border-bottom: none;
+        }
+        
+        .modal-detail-label {
+            font-weight: 600;
+            color: #2563eb;
+            min-width: 150px;
+            font-size: 15px;
+        }
+        
+        .modal-detail-value {
+            color: #374151;
+            flex: 1;
+            font-size: 15px;
+        }
+        
+        .modal-actions {
+            padding: 20px 30px;
+            background: #f9fafb;
+            border-radius: 0 0 16px 16px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .modal-actions button {
+            flex: 1;
+        }
+        
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 5% 10px;
+                max-width: 100%;
+            }
+            
+            .modal-header {
+                padding: 15px 20px;
+            }
+            
+            .modal-header h2 {
+                font-size: 20px;
+            }
+            
+            .modal-info {
+                padding: 20px;
+            }
+            
+            .modal-detail-row {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .modal-detail-label {
+                min-width: auto;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>⚽ Soccer Clinic</h1>
+            <h1>Bayan Soccer Clinic</h1>
             <p>AI-Powered Face Recognition Photo Platform</p>
         </div>
         
         <!-- Role Selection -->
         <div id="roleSelection" class="role-selector">
-            <div class="role-card" onclick="selectRole('photographer')">
+            <div class="role-card" onclick="showPasswordModal()">
                 <div class="icon">📸</div>
                 <h2>Photographer</h2>
                 <p>Upload and manage event photos</p>
@@ -478,6 +883,24 @@ HTML_TEMPLATE = '''
                 <div class="icon">👤</div>
                 <h2>User</h2>
                 <p>View your personalized photos</p>
+            </div>
+        </div>
+        
+        <!-- Password Modal for Photographer -->
+        <div id="passwordModal" class="password-modal">
+            <div class="password-modal-content">
+                <h2>🔐 Photographer Login</h2>
+                <p>Enter password to access photographer dashboard</p>
+                
+                <div class="password-input-group">
+                    <input type="password" id="photographerPassword" placeholder="Enter password" onkeypress="handlePasswordKeypress(event)">
+                    <div id="passwordError" class="password-error">❌ Incorrect password!</div>
+                </div>
+                
+                <div class="password-buttons">
+                    <button onclick="verifyPassword()">Login</button>
+                    <button class="secondary" onclick="closePasswordModal()">Cancel</button>
+                </div>
             </div>
         </div>
         
@@ -565,6 +988,52 @@ HTML_TEMPLATE = '''
         let photographerImages = [];
         let userVideoStream = null;
         let userFaceEmbedding = null;
+        
+        const PHOTOGRAPHER_PASSWORD = "Bayansoccer123!";
+        
+        function showPasswordModal() {
+            document.getElementById('passwordModal').classList.add('active');
+            document.getElementById('photographerPassword').value = '';
+            document.getElementById('passwordError').style.display = 'none';
+            document.body.style.overflow = 'hidden';
+            
+            // Auto focus on password input
+            setTimeout(() => {
+                document.getElementById('photographerPassword').focus();
+            }, 100);
+        }
+        
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+        
+        function handlePasswordKeypress(event) {
+            if (event.key === 'Enter') {
+                verifyPassword();
+            }
+        }
+        
+        function verifyPassword() {
+            const password = document.getElementById('photographerPassword').value;
+            const errorEl = document.getElementById('passwordError');
+            
+            if (password === PHOTOGRAPHER_PASSWORD) {
+                closePasswordModal();
+                selectRole('photographer');
+            } else {
+                errorEl.style.display = 'block';
+                document.getElementById('photographerPassword').value = '';
+                document.getElementById('photographerPassword').focus();
+                
+                // Shake animation
+                const modal = document.querySelector('.password-modal-content');
+                modal.style.animation = 'shake 0.5s';
+                setTimeout(() => {
+                    modal.style.animation = '';
+                }, 500);
+            }
+        }
         
         function selectRole(role) {
             document.getElementById('roleSelection').style.display = 'none';
@@ -838,7 +1307,7 @@ HTML_TEMPLATE = '''
                 emptyState.style.display = 'none';
                 
                 grid.innerHTML = data.photos.map(photo => `
-                    <div class="image-card">
+                    <div class="image-card" onclick="showPhotoDetail('${photo.photo_id}', '${photo.filename}', ${photo.distance}, '${photo.metadata.event_name || 'Untitled Event'}', '${photo.metadata.location || 'Location unknown'}', '${photo.metadata.photographer || 'Unknown'}', '${photo.metadata.date}')">
                         <img src="/uploads/${photo.filename}" alt="${photo.filename}">
                         <div class="badge">Match: ${(100 - photo.distance * 100).toFixed(0)}%</div>
                         <div class="info">
@@ -847,10 +1316,7 @@ HTML_TEMPLATE = '''
                                 📍 ${photo.metadata.location || 'Location unknown'}<br>
                                 📅 ${new Date(photo.metadata.date).toLocaleDateString()}<br>
                                 📸 ${photo.metadata.photographer || 'Unknown'}
-                            </small><br>
-                            <button onclick="downloadPhoto('/uploads/${photo.filename}', '${photo.filename}')" style="width: 100%; margin-top: 10px; font-size: 13px;">
-                                📥 Download
-                            </button>
+                            </small>
                         </div>
                     </div>
                 `).join('');
@@ -890,6 +1356,106 @@ HTML_TEMPLATE = '''
             el.className = `status ${type}`;
             el.textContent = message;
         }
+        
+        // ==================== PHOTO DETAIL MODAL ====================
+        
+        function showPhotoDetail(photoId, filename, distance, eventName, location, photographer, date) {
+            // Create modal if not exists
+            let modal = document.getElementById('photoDetailModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'photoDetailModal';
+                modal.className = 'modal';
+                document.body.appendChild(modal);
+            }
+            
+            const matchPercentage = (100 - distance * 100).toFixed(0);
+            const formattedDate = new Date(date).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            const formattedTime = new Date(date).toLocaleTimeString('en-US');
+            
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>📸 Photo Details</h2>
+                        <button class="modal-close" onclick="closePhotoDetail()">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <img src="/uploads/${filename}" class="modal-image" alt="${filename}">
+                        <div class="modal-info">
+                            <div class="modal-detail-row">
+                                <div class="modal-detail-label">🎯 Match Score</div>
+                                <div class="modal-detail-value">
+                                    <strong style="color: #10b981; font-size: 18px;">${matchPercentage}%</strong>
+                                </div>
+                            </div>
+                            <div class="modal-detail-row">
+                                <div class="modal-detail-label">⚽ Event Name</div>
+                                <div class="modal-detail-value">${eventName}</div>
+                            </div>
+                            <div class="modal-detail-row">
+                                <div class="modal-detail-label">📍 Location</div>
+                                <div class="modal-detail-value">${location}</div>
+                            </div>
+                            <div class="modal-detail-row">
+                                <div class="modal-detail-label">📅 Date</div>
+                                <div class="modal-detail-value">${formattedDate}</div>
+                            </div>
+                            <div class="modal-detail-row">
+                                <div class="modal-detail-label">🕐 Time</div>
+                                <div class="modal-detail-value">${formattedTime}</div>
+                            </div>
+                            <div class="modal-detail-row">
+                                <div class="modal-detail-label">📸 Photographer</div>
+                                <div class="modal-detail-value">${photographer}</div>
+                            </div>
+                            <div class="modal-detail-row">
+                                <div class="modal-detail-label">📁 Filename</div>
+                                <div class="modal-detail-value" style="font-family: monospace; font-size: 13px;">${filename}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button onclick="downloadPhoto('/uploads/${filename}', '${filename}')">
+                            📥 Download Photo
+                        </button>
+                        <button class="secondary" onclick="closePhotoDetail()">
+                            ✕ Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closePhotoDetail() {
+            const modal = document.getElementById('photoDetailModal');
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('photoDetailModal');
+            if (event.target === modal) {
+                closePhotoDetail();
+            }
+        }
+        
+        // Close modal with ESC key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closePhotoDetail();
+            }
+        });
     </script>
 </body>
 </html>
@@ -1091,7 +1657,7 @@ if __name__ == '__main__':
     local_ip = socket.gethostbyname(hostname)
     
     print("\n" + "="*70)
-    print("⚽ SOCCER CLINIC - AI FACE RECOGNITION PLATFORM")
+    print("Bayan SOCCER CLINIC - AI FACE RECOGNITION PLATFORM")
     print("="*70)
     
     if has_ssl:
