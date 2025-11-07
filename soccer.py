@@ -1,5 +1,5 @@
-from flask import Flask, render_template_string, request, jsonify, send_file, send_from_directory
-from flask_cors import CORS
+from flask import Flask, render_template_string, request, jsonify, send_file, send_from_directory, Response
+from flask_cors import CORS, cross_origin
 import cv2
 import numpy as np
 from PIL import Image
@@ -16,7 +16,13 @@ import json
 import uuid
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 class SoccerClinicFaceRecognition:
     def __init__(self):
@@ -139,7 +145,7 @@ HTML_TEMPLATE = '''
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bayan Soccer Clinic - AI Face Recognition</title>
+    <title>Soccer Clinic - AI Face Recognition</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -867,7 +873,7 @@ HTML_TEMPLATE = '''
 <body>
     <div class="container">
         <div class="header">
-            <h1>Bayan Soccer Clinic</h1>
+            <h1>⚽ Soccer Clinic</h1>
             <p>AI-Powered Face Recognition Photo Platform</p>
         </div>
         
@@ -1530,9 +1536,13 @@ def get_photographer_photos():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e), 'photos': []})
 
-@app.route('/api/user/register_face', methods=['POST'])
+@app.route('/api/user/register_face', methods=['POST', 'OPTIONS'])
+@cross_origin()
 def user_register_face():
-    """User registers their face (stored in localStorage)"""
+    """User registers their face (stored in localStorage) - CORS enabled for external access"""
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
         data = request.json
         image_data = data['image']
@@ -1571,25 +1581,33 @@ def user_register_face():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/user/my_photos', methods=['POST'])
+@app.route('/api/user/my_photos', methods=['POST', 'OPTIONS'])
+@cross_origin()
 def get_user_photos():
-    """Get photos that match the user's face"""
+    """Get photos that match the user's face - CORS enabled for external access"""
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
         data = request.json
         user_embedding = data['embedding']
         
         matched_photos = face_system.match_user_face(user_embedding)
         
-        # Format response
+        # Format response with full URLs for external access
         photos = []
         for match in matched_photos:
             photo_id = match['photo_id']
             photo_data = face_system.photo_database['photos'].get(photo_id)
             
             if photo_data:
+                # Get base URL from request
+                base_url = request.host_url.rstrip('/')
+                
                 photos.append({
                     'photo_id': photo_id,
                     'filename': photo_data['filename'],
+                    'url': f"{base_url}/uploads/{photo_data['filename']}",
                     'metadata': photo_data.get('metadata', {}),
                     'distance': match['distance']
                 })
@@ -1597,6 +1615,17 @@ def get_user_photos():
         return jsonify({'success': True, 'photos': photos})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e), 'photos': []})
+
+@app.route('/api/health', methods=['GET'])
+@cross_origin()
+def health_check():
+    """Health check endpoint for external services"""
+    return jsonify({
+        'status': 'ok',
+        'service': 'Soccer Clinic Face Recognition',
+        'total_photos': len(face_system.photo_database['photos']),
+        'total_faces': len(face_system.photo_database['face_embeddings'])
+    })
 
 @app.route('/uploads/<filename>')
 def serve_upload(filename):
@@ -1650,19 +1679,43 @@ if __name__ == '__main__':
     os.makedirs('uploads', exist_ok=True)
     print("📁 Folder ready: uploads/")
     
-    # Generate SSL certificate
-    has_ssl = generate_self_signed_cert()
-    
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
     
     print("\n" + "="*70)
-    print("Bayan SOCCER CLINIC - AI FACE RECOGNITION PLATFORM")
+    print("⚽ SOCCER CLINIC - AI FACE RECOGNITION PLATFORM")
     print("="*70)
     
-    if has_ssl:
-        print(f"🌐 Laptop/Desktop: https://localhost:5000")
-        print(f"📱 Mobile (same WiFi): https://{local_ip}:5000")
+    # Check if user wants HTTPS or HTTP
+    use_https = input("Use HTTPS? (y/n) [recommended: n for local network]: ").lower() == 'y'
+    
+    if use_https:
+        has_ssl = generate_self_signed_cert()
+        
+        if has_ssl:
+            print(f"🌐 HTTPS - Laptop/Desktop: https://localhost:5000")
+            print(f"📱 HTTPS - Mobile (same WiFi): https://{local_ip}:5000")
+            print("="*70)
+            print("⚠️  IMPORTANT FOR MOBILE:")
+            print(f"   1. Open https://{local_ip}:5000 in mobile browser")
+            print("   2. You'll see 'Not Secure' warning")
+            print("   3. Click 'Advanced' → 'Proceed to site'")
+            print("   4. Accept the certificate")
+            print("   5. Then you can use the app")
+            print("="*70)
+            
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain('cert.pem', 'key.pem')
+            
+            app.run(host='0.0.0.0', port=5000, debug=False, threaded=True, ssl_context=context)
+        else:
+            print("⚠️  PyOpenSSL not installed. Install: pip install pyopenssl")
+            print("Falling back to HTTP mode...")
+            use_https = False
+    
+    if not use_https:
+        print(f"🌐 HTTP - Laptop/Desktop: http://localhost:5000")
+        print(f"📱 HTTP - Mobile (same WiFi): http://{local_ip}:5000")
         print("="*70)
         print("✨ FEATURES:")
         print("   📸 Photographer Role:")
@@ -1678,11 +1731,10 @@ if __name__ == '__main__':
         print("      • Personalized photo gallery")
         print("      • Download photos with your face")
         print("="*70)
-        print("📱 For iOS/iPhone:")
-        print("   1. Must use HTTPS (not HTTP)")
-        print("   2. Browser will show 'Not Secure' warning")
-        print("   3. Click 'Advanced' → 'Proceed to {}'".format(local_ip))
-        print("   4. Allow camera access when prompted")
+        print("   🌍 API Endpoints (CORS enabled):")
+        print(f"      • http://{local_ip}:5000/api/user/register_face")
+        print(f"      • http://{local_ip}:5000/api/user/my_photos")
+        print(f"      • http://{local_ip}:5000/api/health")
         print("="*70)
         print("🔒 Privacy:")
         print("   • User face data NEVER sent to server")
@@ -1690,17 +1742,7 @@ if __name__ == '__main__':
         print("   • Full client-side privacy protection")
         print("="*70)
         print("📝 Make sure laptop and phone on SAME WiFi!")
-        print("="*70 + "\n")
-        
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        context.load_cert_chain('cert.pem', 'key.pem')
-        
-        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True, ssl_context=context)
-    else:
-        print("⚠️  PyOpenSSL not installed. Install: pip install pyopenssl")
-        print("⚠️  Running without HTTPS (won't work on iPhone!)")
-        print(f"🌐 HTTP access: http://localhost:5000")
-        print(f"📱 Android only: http://{local_ip}:5000")
+        print(f"📝 Update API_BASE_URL in your HTML to: http://{local_ip}:5000")
         print("="*70 + "\n")
         
         app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
